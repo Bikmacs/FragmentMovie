@@ -1,71 +1,49 @@
-package com.example.bottomnavig.ui.notifications
-
 import android.content.Context
-import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.fragment.app.Fragment
-import androidx.lifecycle.ViewModelProvider
-import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.bottomnavig.databinding.FragmentNotificationsBinding
-import com.example.bottomnavig.ui.MoviesAPI
-import com.example.bottomnavig.ui.adapters.MoviesAdapter
+import androidx.recyclerview.widget.RecyclerView
+import com.example.bottomnavig.R
 import com.example.bottomnavig.ui.models.Movies
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
 
-class NotificationsFragment : Fragment() {
+class MovieAdapter(private val context: Context, private val onItemClick: (String) -> Unit) :
+    RecyclerView.Adapter<MovieAdapter.MovieViewHolder>() {
 
-    private var _binding: FragmentNotificationsBinding? = null
-    private val binding get() = _binding!!
-    private lateinit var adapter: MoviesAdapter
+    private var movies: List<Movies> = emptyList()
 
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
-        _binding = FragmentNotificationsBinding.inflate(inflater, container, false)
-        val view = binding.root
-
-        context?.let {
-            adapter = MoviesAdapter.create(it)
-            binding.rvMovies.layoutManager = LinearLayoutManager(it)
-            binding.rvMovies.adapter = adapter
-        }
-
-        val retrofit = Retrofit.Builder()
-            .baseUrl("https://dummyapi.online/api/")
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-
-        val moviesAPI: MoviesAPI = retrofit.create(MoviesAPI::class.java)
-
-        moviesAPI.getData().enqueue(object : Callback<List<Movies>> {
-
-            override fun onResponse(call: Call<List<Movies>>, response: Response<List<Movies>>) {
-                if(response.isSuccessful)
-                response.body()?.let { movies ->
-                    Log.d("QWE", "QWE")
-                    adapter.refresh(movies)
-                }
-            }
-            override fun onFailure(call: Call<List<Movies>>, t: Throwable) {
-                Log.e("Error", "Failed to fetch data", t)
-            }
-        })
-        val dashboardViewModel =
-            ViewModelProvider(this)[NotificationsViewModel::class.java]
-        return view
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MovieViewHolder {
+        val view = LayoutInflater.from(context).inflate(R.layout.movie_item, parent, false)
+        return MovieViewHolder(view)
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
+    override fun onBindViewHolder(holder: MovieViewHolder, position: Int) {
+        val movie = movies[position]
+        // Bind data to ViewHolder here
+        holder.bind(movie)
+    }
+
+    override fun getItemCount(): Int {
+        return movies.size
+    }
+
+    fun refresh(newMovies: List<Movies>) {
+        movies = newMovies
+        notifyDataSetChanged()
+    }
+
+    inner class MovieViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        // ViewHolder implementation here
+        fun bind(movie: Movies) {
+            // Bind movie data to views
+            itemView.setOnClickListener {
+                onItemClick.invoke(movie.imdb_url) // Assuming 'url' is the property in Movies class
+            }
+        }
+    }
+
+    companion object {
+        fun create(context: Context, onItemClick: (String) -> Unit): MovieAdapter {
+            return MovieAdapter(context, onItemClick)
+        }
     }
 }

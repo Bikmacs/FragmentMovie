@@ -1,44 +1,87 @@
-package com.example.bottomnavig.ui.adapters
+package com.example.bottomnavig.ui.notifications
 
-import android.content.Context
+import MovieAdapter
+import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
-import androidx.recyclerview.widget.RecyclerView
-import com.example.bottomnavig.databinding.MovieItemBinding
+import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.bottomnavig.databinding.FragmentNotificationsBinding
+import com.example.bottomnavig.ui.MoviesAPI
 import com.example.bottomnavig.ui.models.Movies
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import java.util.regex.Pattern
 
-class MoviesAdapter private constructor(private val context: Context) : RecyclerView.Adapter<MoviesAdapter.ViewHolder>() {
+class NotificationsFragment : Fragment() {
 
-    private var items: List<Movies> = emptyList()
+    private var _binding: FragmentNotificationsBinding? = null
+    private val binding get() = _binding!!
+    private lateinit var adapter: MovieAdapter
 
-    companion object Factory {
-        fun create(context: Context): MoviesAdapter {
-            return MoviesAdapter(context)
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentNotificationsBinding.inflate(inflater, container, false)
+        val view = binding.root
+
+        setupRecyclerView()
+
+        val retrofit = Retrofit.Builder()
+            .baseUrl("https://dummyapi.online/api/")
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+
+        val moviesAPI: MoviesAPI = retrofit.create(MoviesAPI::class.java)
+
+        moviesAPI.getData().enqueue(object : Callback<List<Movies>> {
+            override fun onResponse(call: Call<List<Movies>>, response: Response<List<Movies>>) {
+                if (response.isSuccessful) {
+                    response.body()?.let { movies ->
+                        adapter.refresh(movies)
+                    }
+                } else {
+                    Log.e("Error", "Failed to fetch data: ${response.code()}")
+                }
+            }
+
+            override fun onFailure(call: Call<List<Movies>>, t: Throwable) {
+                Log.e("Error", "Failed to fetch data", t)
+            }
+        })
+
+        return view
+    }
+
+    private fun setupRecyclerView() {
+        context?.let { context ->
+            adapter = MovieAdapter.create(context) { url ->
+                navigateToMovieFragment(url)
+            }
+            binding.rvMovies.layoutManager = LinearLayoutManager(context)
+            binding.rvMovies.adapter = adapter
         }
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val binding = MovieItemBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return ViewHolder(binding)
+    private fun navigateToMovieFragment(url: String) {
+        val pattern = Pattern.compile("https://www.imdb.com/title/(.+?)/")
+        val matcher = pattern.matcher(url)
+        if (matcher.matches()) {
+            val movieId = matcher.group(1)
+            findNavController().navigate(NotificationsFragmentDirections.actionNavigationNotificationsToMovieFragment(movieId))
+        }
     }
 
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val item = items.sortedByDescending { it.rating }[position]
-        holder.tvMovieName.text = item.movie
-        holder.tvRating.text = item.rating.toString()
-    }
-
-    override fun getItemCount(): Int {
-        return items.size
-    }
-
-    class ViewHolder(private val binding: MovieItemBinding) : RecyclerView.ViewHolder(binding.root) {
-       val tvMovieName = binding.movieName
-        val tvRating = binding.ratingMovie
-    }
-
-    fun refresh(items: List<Movies>) {
-        this.items = items
-        notifyDataSetChanged()
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }
